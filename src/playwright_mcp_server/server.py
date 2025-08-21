@@ -213,6 +213,166 @@ class PlaywrightMCPServer:
                         "type": "object",
                         "properties": {}
                     }
+                ),
+                types.Tool(
+                    name="browser_select_option",
+                    description="Select an option from a dropdown",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the dropdown element"
+                            },
+                            "value": {
+                                "type": "string",
+                                "description": "Value to select"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector", "value"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_check_checkbox",
+                    description="Check a checkbox",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the checkbox"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_uncheck_checkbox",
+                    description="Uncheck a checkbox",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the checkbox"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_hover",
+                    description="Hover over an element",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the element to hover over"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_scroll_to",
+                    description="Scroll to an element",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the element to scroll to"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_get_attribute",
+                    description="Get an attribute value from an element",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "selector": {
+                                "type": "string",
+                                "description": "CSS selector for the element"
+                            },
+                            "attribute": {
+                                "type": "string",
+                                "description": "Name of the attribute to get"
+                            },
+                            "timeout": {
+                                "type": "number",
+                                "description": "Timeout in milliseconds",
+                                "default": 5000
+                            }
+                        },
+                        "required": ["selector", "attribute"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_wait_for_load_state",
+                    description="Wait for a specific load state",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "state": {
+                                "type": "string",
+                                "description": "Load state to wait for (load, domcontentloaded, networkidle)",
+                                "default": "load"
+                            }
+                        }
+                    }
+                ),
+                types.Tool(
+                    name="browser_go_back",
+                    description="Go back in browser history",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                types.Tool(
+                    name="browser_go_forward",
+                    description="Go forward in browser history",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                types.Tool(
+                    name="browser_reload",
+                    description="Reload the current page",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
                 )
             ]
         
@@ -222,8 +382,14 @@ class PlaywrightMCPServer:
         ) -> list[types.TextContent]:
             """Handle tool calls."""
             try:
+                # Validate arguments first
+                arguments = self._validate_arguments(name, arguments)
+                
                 # Ensure browser is initialized
                 await self._ensure_browser()
+                
+                if not self.current_page:
+                    return [types.TextContent(type="text", text="No active page available")]
                 
                 if name == "browser_navigate":
                     result = await self.tools.navigate(self.current_page, arguments.get("url"))
@@ -272,6 +438,55 @@ class PlaywrightMCPServer:
                     result = await self.tools.get_title(self.current_page)
                 elif name == "browser_get_url":
                     result = await self.tools.get_url(self.current_page)
+                elif name == "browser_select_option":
+                    result = await self.tools.select_option(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("value"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_check_checkbox":
+                    result = await self.tools.check_checkbox(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_uncheck_checkbox":
+                    result = await self.tools.uncheck_checkbox(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_hover":
+                    result = await self.tools.hover(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_scroll_to":
+                    result = await self.tools.scroll_to(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_get_attribute":
+                    result = await self.tools.get_attribute(
+                        self.current_page,
+                        arguments.get("selector"),
+                        arguments.get("attribute"),
+                        arguments.get("timeout", 5000)
+                    )
+                elif name == "browser_wait_for_load_state":
+                    result = await self.tools.wait_for_load_state(
+                        self.current_page,
+                        arguments.get("state", "load")
+                    )
+                elif name == "browser_go_back":
+                    result = await self.tools.go_back(self.current_page)
+                elif name == "browser_go_forward":
+                    result = await self.tools.go_forward(self.current_page)
+                elif name == "browser_reload":
+                    result = await self.tools.reload(self.current_page)
                 else:
                     result = f"Unknown tool: {name}"
                 
@@ -282,16 +497,71 @@ class PlaywrightMCPServer:
                 logger.error(error_msg)
                 return [types.TextContent(type="text", text=error_msg)]
     
+    def _validate_arguments(self, name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
+        """Validate and sanitize tool arguments."""
+        if arguments is None:
+            arguments = {}
+        
+        # Basic validation for common parameters
+        if "timeout" in arguments:
+            timeout = arguments.get("timeout")
+            if not isinstance(timeout, (int, float)) or timeout <= 0:
+                arguments["timeout"] = 5000  # Default timeout
+            elif timeout > 60000:  # Cap at 60 seconds
+                arguments["timeout"] = 60000
+        
+        if "selector" in arguments:
+            selector = arguments.get("selector")
+            if not isinstance(selector, str) or not selector.strip():
+                raise ValueError("Selector must be a non-empty string")
+            arguments["selector"] = selector.strip()
+        
+        if "url" in arguments:
+            url = arguments.get("url")
+            if not isinstance(url, str) or not url.strip():
+                raise ValueError("URL must be a non-empty string")
+            # Basic URL validation
+            if not (url.startswith("http://") or url.startswith("https://") or url.startswith("file://")):
+                raise ValueError("URL must start with http://, https://, or file://")
+        
+        if "text" in arguments:
+            text = arguments.get("text")
+            if not isinstance(text, str):
+                raise ValueError("Text must be a string")
+        
+        if "script" in arguments:
+            script = arguments.get("script")
+            if not isinstance(script, str) or not script.strip():
+                raise ValueError("Script must be a non-empty string")
+        
+        return arguments
+
     async def _ensure_browser(self) -> None:
         """Ensure browser is initialized."""
         if not self.playwright:
             self.playwright = await async_playwright().start()
         
         if not self.browser:
-            self.browser = await self.playwright.chromium.launch(headless=True)
+            # Launch with optimized settings for MCP server use
+            self.browser = await self.playwright.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",  # Overcome limited resource problems
+                    "--disable-gpu",
+                    "--no-first-run",
+                    "--disable-default-apps",
+                    "--disable-features=TranslateUI",
+                    "--disable-ipc-flooding-protection"
+                ]
+            )
         
         if not self.context:
-            self.context = await self.browser.new_context()
+            # Create context with reasonable defaults
+            self.context = await self.browser.new_context(
+                viewport={"width": 1280, "height": 720},
+                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
         
         if not self.current_page:
             self.current_page = await self.context.new_page()
@@ -299,32 +569,43 @@ class PlaywrightMCPServer:
     
     async def _new_tab(self, url: Optional[str] = None) -> str:
         """Open a new tab."""
-        if not self.context:
-            await self._ensure_browser()
-        
-        page = await self.context.new_page()
-        self.pages.append(page)
-        self.current_page = page
-        
-        if url:
-            await page.goto(url)
-            return f"New tab opened and navigated to: {url}"
-        else:
-            return "New tab opened"
+        try:
+            if not self.context:
+                await self._ensure_browser()
+            
+            page = await self.context.new_page()
+            self.pages.append(page)
+            self.current_page = page
+            
+            if url:
+                result = await self.tools.navigate(page, url)
+                if "Successfully" in result:
+                    return f"New tab opened and navigated to: {url}"
+                else:
+                    return f"New tab opened but navigation failed: {result}"
+            else:
+                return f"New tab opened (total tabs: {len(self.pages)})"
+        except Exception as e:
+            return f"Failed to open new tab: {str(e)}"
     
     async def _close_tab(self) -> str:
         """Close the current tab."""
-        if not self.current_page:
-            return "No active tab to close"
-        
-        if len(self.pages) <= 1:
-            return "Cannot close the last tab"
-        
-        await self.current_page.close()
-        self.pages.remove(self.current_page)
-        self.current_page = self.pages[-1] if self.pages else None
-        
-        return "Tab closed"
+        try:
+            if not self.current_page:
+                return "No active tab to close"
+            
+            if len(self.pages) <= 1:
+                return "Cannot close the last tab"
+            
+            page_to_close = self.current_page
+            self.pages.remove(page_to_close)
+            self.current_page = self.pages[-1] if self.pages else None
+            
+            await page_to_close.close()
+            
+            return f"Tab closed (remaining tabs: {len(self.pages)})"
+        except Exception as e:
+            return f"Failed to close tab: {str(e)}"
     
     async def run(self) -> None:
         """Run the server."""
