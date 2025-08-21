@@ -113,13 +113,26 @@ class PlaywrightTools:
     async def get_text(self, page: Page, selector: str, timeout: int = 5000) -> str:
         """Get text content from an element."""
         try:
+            # First try to get a single element
             element = await page.wait_for_selector(selector, timeout=timeout)
             if element:
                 text = await element.text_content()
                 return text or ""
             return ""
         except Exception as e:
-            return f"Failed to get text from element {selector}: {str(e)}"
+            # If single element fails, try to get multiple elements
+            try:
+                elements = await page.query_selector_all(selector)
+                if elements:
+                    texts = []
+                    for element in elements:
+                        text = await element.text_content()
+                        if text:
+                            texts.append(text.strip())
+                    return " | ".join(texts) if texts else ""
+                return f"Failed to get text from element {selector}: {str(e)}"
+            except Exception:
+                return f"Failed to get text from element {selector}: {str(e)}"
     
     async def wait_for_selector(self, page: Page, selector: str, timeout: int = 30000, state: str = "visible") -> str:
         """Wait for an element to appear."""
@@ -250,3 +263,56 @@ class PlaywrightTools:
             return "Successfully reloaded page"
         except Exception as e:
             return f"Failed to reload page: {str(e)}"
+    
+    async def fill_form(self, page: Page, form_data: dict[str, str], submit_selector: Optional[str] = None) -> str:
+        """Fill multiple form fields and optionally submit the form."""
+        results = []
+        failed_fields = []
+        
+        for selector, value in form_data.items():
+            try:
+                await page.fill(selector, value, timeout=5000)
+                results.append(f"✓ {selector}: filled")
+            except Exception as e:
+                failed_fields.append(f"✗ {selector}: {str(e)}")
+        
+        if submit_selector:
+            try:
+                await page.click(submit_selector, timeout=5000)
+                results.append(f"✓ Form submitted via {submit_selector}")
+            except Exception as e:
+                results.append(f"✗ Failed to submit form: {str(e)}")
+        
+        summary = f"Filled {len(results) - len(failed_fields)}/{len(form_data)} fields"
+        if failed_fields:
+            summary += f" ({len(failed_fields)} failed)"
+        
+        return f"{summary}\n" + "\n".join(results + failed_fields)
+    
+    async def get_links(self, page: Page, limit: int = 50) -> str:
+        """Get all links on the current page."""
+        try:
+            links = await page.evaluate(f"""
+                () => {{
+                    const links = Array.from(document.querySelectorAll('a[href]'));
+                    return links.slice(0, {limit}).map(link => ({{
+                        text: link.textContent.trim() || '[No text]',
+                        href: link.href,
+                        target: link.target || '_self'
+                    }}));
+                }}
+            """)
+            
+            if not links:
+                return "No links found on the page"
+            
+            result_lines = [f"Found {len(links)} links:"]
+            for i, link in enumerate(links, 1):
+                result_lines.append(f"{i}. {link['text']} -> {link['href']}")
+            
+            if len(links) == limit:
+                result_lines.append(f"(Limited to first {limit} links)")
+            
+            return "\n".join(result_lines)
+        except Exception as e:
+            return f"Failed to get links: {str(e)}"

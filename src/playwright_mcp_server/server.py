@@ -373,6 +373,39 @@ class PlaywrightMCPServer:
                         "type": "object",
                         "properties": {}
                     }
+                ),
+                types.Tool(
+                    name="browser_fill_form",
+                    description="Fill multiple form fields and optionally submit",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "form_data": {
+                                "type": "object",
+                                "description": "Key-value pairs where key is CSS selector and value is text to fill",
+                                "additionalProperties": {"type": "string"}
+                            },
+                            "submit_selector": {
+                                "type": "string",
+                                "description": "CSS selector for submit button (optional)"
+                            }
+                        },
+                        "required": ["form_data"]
+                    }
+                ),
+                types.Tool(
+                    name="browser_get_links",
+                    description="Get all links on the current page",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "number",
+                                "description": "Maximum number of links to return",
+                                "default": 50
+                            }
+                        }
+                    }
                 )
             ]
         
@@ -487,6 +520,13 @@ class PlaywrightMCPServer:
                     result = await self.tools.go_forward(self.current_page)
                 elif name == "browser_reload":
                     result = await self.tools.reload(self.current_page)
+                elif name == "browser_fill_form":
+                    form_data = arguments.get("form_data", {})
+                    submit_selector = arguments.get("submit_selector")
+                    result = await self.tools.fill_form(self.current_page, form_data, submit_selector)
+                elif name == "browser_get_links":
+                    limit = arguments.get("limit", 50)
+                    result = await self.tools.get_links(self.current_page, limit)
                 else:
                     result = f"Unknown tool: {name}"
                 
@@ -533,6 +573,16 @@ class PlaywrightMCPServer:
             script = arguments.get("script")
             if not isinstance(script, str) or not script.strip():
                 raise ValueError("Script must be a non-empty string")
+        
+        if "form_data" in arguments:
+            form_data = arguments.get("form_data")
+            if not isinstance(form_data, dict):
+                raise ValueError("Form data must be a dictionary")
+            for key, value in form_data.items():
+                if not isinstance(key, str) or not key.strip():
+                    raise ValueError("Form data keys must be non-empty strings (CSS selectors)")
+                if not isinstance(value, str):
+                    raise ValueError("Form data values must be strings")
         
         return arguments
 
